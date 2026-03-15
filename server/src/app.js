@@ -3,8 +3,29 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
+
+// ── Rate limiters ────────────────────────────────────────────────────────────
+
+// Strict limiter for auth endpoints (brute-force protection)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+
+// General API limiter
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
 
 // ── Middleware ───────────────────────────────────────────────────────────────
 
@@ -20,13 +41,13 @@ app.get('/health', (req, res) => {
 
 // ── API Routes ───────────────────────────────────────────────────────────────
 
-app.use('/api/auth',         require('./routes/auth'));
-app.use('/api/products',     require('./routes/products'));
-app.use('/api/categories',   require('./routes/categories'));
-app.use('/api/customers',    require('./routes/customers'));
-app.use('/api/transactions', require('./routes/transactions'));
-app.use('/api/settings',     require('./routes/settings'));
-app.use('/api/sync',         require('./routes/sync'));
+app.use('/api/auth',         authLimiter, require('./routes/auth'));
+app.use('/api/products',     apiLimiter,  require('./routes/products'));
+app.use('/api/categories',   apiLimiter,  require('./routes/categories'));
+app.use('/api/customers',    apiLimiter,  require('./routes/customers'));
+app.use('/api/transactions', apiLimiter,  require('./routes/transactions'));
+app.use('/api/settings',     apiLimiter,  require('./routes/settings'));
+app.use('/api/sync',         apiLimiter,  require('./routes/sync'));
 
 // ── 404 handler ──────────────────────────────────────────────────────────────
 
