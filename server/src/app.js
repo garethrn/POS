@@ -57,7 +57,13 @@ app.use('/api/categories',   apiLimiter,  require('./routes/categories'));
 app.use('/api/customers',    apiLimiter,  require('./routes/customers'));
 app.use('/api/transactions', apiLimiter,  require('./routes/transactions'));
 app.use('/api/settings',     apiLimiter,  require('./routes/settings'));
-app.use('/api/sync',         apiLimiter,  require('./routes/sync'));
+app.use('/api/sync',             apiLimiter,  require('./routes/sync'));
+app.use('/api/suppliers',        apiLimiter,  require('./routes/suppliers'));
+app.use('/api/purchase-orders',  apiLimiter,  require('./routes/purchase_orders'));
+app.use('/api/stock-adjustments',apiLimiter,  require('./routes/stock_adjustments'));
+app.use('/api/shifts',           apiLimiter,  require('./routes/shifts'));
+app.use('/api/laybys',           apiLimiter,  require('./routes/laybys'));
+app.use('/api/reports',          apiLimiter,  require('./routes/reports'));
 
 // ── 404 handler ──────────────────────────────────────────────────────────────
 
