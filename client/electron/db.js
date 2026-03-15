@@ -14,6 +14,7 @@ function initialize() {
   db.pragma('foreign_keys = ON');
   createSchema();
   seedSettings();
+  runMigrations();
 }
 
 function createSchema() {
@@ -95,6 +96,101 @@ function createSchema() {
       value TEXT,
       updated_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      contact TEXT,
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      account_no TEXT,
+      is_active INT DEFAULT 1,
+      local_only INT DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS purchase_orders (
+      id TEXT PRIMARY KEY,
+      po_number TEXT UNIQUE,
+      supplier_id TEXT REFERENCES suppliers(id),
+      status TEXT DEFAULT 'pending',
+      subtotal REAL DEFAULT 0,
+      tax REAL DEFAULT 0,
+      total REAL DEFAULT 0,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS purchase_order_items (
+      id TEXT PRIMARY KEY,
+      po_id TEXT NOT NULL REFERENCES purchase_orders(id),
+      product_id TEXT REFERENCES products(id),
+      product_name TEXT,
+      quantity_ordered INT DEFAULT 0,
+      quantity_received INT DEFAULT 0,
+      unit_cost REAL DEFAULT 0,
+      total_cost REAL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS stock_adjustments (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES products(id),
+      quantity INT NOT NULL,
+      reason TEXT NOT NULL,
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS shifts (
+      id TEXT PRIMARY KEY,
+      cashier_name TEXT,
+      opening_cash REAL DEFAULT 0,
+      closing_cash REAL,
+      expected_cash REAL,
+      cash_difference REAL,
+      total_sales REAL DEFAULT 0,
+      transaction_count INT DEFAULT 0,
+      status TEXT DEFAULT 'open',
+      notes TEXT,
+      opened_at TEXT DEFAULT (datetime('now')),
+      closed_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS laybys (
+      id TEXT PRIMARY KEY,
+      layby_number TEXT UNIQUE,
+      customer_id TEXT REFERENCES customers(id),
+      customer_name TEXT,
+      subtotal REAL DEFAULT 0,
+      tax REAL DEFAULT 0,
+      discount REAL DEFAULT 0,
+      total REAL DEFAULT 0,
+      deposit REAL DEFAULT 0,
+      balance_due REAL DEFAULT 0,
+      status TEXT DEFAULT 'active',
+      notes TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS layby_items (
+      id TEXT PRIMARY KEY,
+      layby_id TEXT NOT NULL REFERENCES laybys(id),
+      product_id TEXT REFERENCES products(id),
+      product_name TEXT,
+      sku TEXT,
+      quantity INT DEFAULT 1,
+      unit_price REAL DEFAULT 0,
+      discount REAL DEFAULT 0,
+      total REAL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 }
 
@@ -139,26 +235,30 @@ function saveProduct(product) {
     db.prepare(
       `UPDATE products SET
         name=?, sku=?, barcode=?, category_id=?, price=?, cost=?, stock=?,
-        description=?, is_active=?, updated_at=?
+        description=?, is_active=?, supplier_id=?, min_stock=?, max_stock=?, reorder_point=?, updated_at=?
        WHERE id=?`
     ).run(
       product.name, product.sku || null, product.barcode || null,
       product.category_id || null, product.price || 0, product.cost || 0,
       product.stock || 0, product.description || null,
       product.is_active !== undefined ? product.is_active : 1,
+      product.supplier_id || null,
+      product.min_stock || 0, product.max_stock || 0, product.reorder_point || 5,
       now, product.id
     );
     return { id: product.id };
   }
   const id = uuidv4();
   db.prepare(
-    `INSERT INTO products (id, name, sku, barcode, category_id, price, cost, stock, description, is_active, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO products (id, name, sku, barcode, category_id, price, cost, stock, description, is_active, supplier_id, min_stock, max_stock, reorder_point, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id, product.name, product.sku || null, product.barcode || null,
     product.category_id || null, product.price || 0, product.cost || 0,
     product.stock || 0, product.description || null,
     product.is_active !== undefined ? product.is_active : 1,
+    product.supplier_id || null,
+    product.min_stock || 0, product.max_stock || 0, product.reorder_point || 5,
     now, now
   );
   return { id };
@@ -499,6 +599,223 @@ function markSynced(ids) {
   return { success: true };
 }
 
+// ── Migrations ────────────────────────────────────────────────────────────────
+const migrations = [
+  'ALTER TABLE products ADD COLUMN supplier_id TEXT',
+  'ALTER TABLE products ADD COLUMN min_stock INTEGER DEFAULT 0',
+  'ALTER TABLE products ADD COLUMN max_stock INTEGER DEFAULT 0',
+  'ALTER TABLE products ADD COLUMN reorder_point INTEGER DEFAULT 5',
+  'ALTER TABLE customers ADD COLUMN credit_limit REAL DEFAULT 0',
+  'ALTER TABLE customers ADD COLUMN account_type TEXT DEFAULT "cash"',
+  'ALTER TABLE customers ADD COLUMN balance REAL DEFAULT 0',
+  'ALTER TABLE transaction_items ADD COLUMN product_sku TEXT',
+];
+
+function runMigrations() {
+  for (const sql of migrations) {
+    try { db.prepare(sql).run(); } catch(e) { /* column already exists */ }
+  }
+}
+
+// ── Suppliers ──────────────────────────────────────────────────────────────────
+function getSuppliers() {
+  return db.prepare(`SELECT * FROM suppliers WHERE is_active=1 ORDER BY name`).all();
+}
+
+function saveSupplier(supplier) {
+  const now = new Date().toISOString();
+  if (supplier.id) {
+    db.prepare(`UPDATE suppliers SET name=?,contact=?,phone=?,email=?,address=?,account_no=?,is_active=?,updated_at=? WHERE id=?`)
+      .run(supplier.name, supplier.contact||null, supplier.phone||null, supplier.email||null,
+           supplier.address||null, supplier.account_no||null,
+           supplier.is_active!==undefined?supplier.is_active:1, now, supplier.id);
+    return { id: supplier.id };
+  }
+  const id = uuidv4();
+  db.prepare(`INSERT INTO suppliers (id,name,contact,phone,email,address,account_no,is_active,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+    .run(id, supplier.name, supplier.contact||null, supplier.phone||null, supplier.email||null,
+         supplier.address||null, supplier.account_no||null,
+         supplier.is_active!==undefined?supplier.is_active:1, now, now);
+  return { id };
+}
+
+function deleteSupplier(id) {
+  db.prepare(`UPDATE suppliers SET is_active=0, updated_at=? WHERE id=?`).run(new Date().toISOString(), id);
+  return { success: true };
+}
+
+// ── Purchase Orders ────────────────────────────────────────────────────────────
+function getPurchaseOrders() {
+  return db.prepare(`SELECT po.*, s.name AS supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id=s.id ORDER BY po.created_at DESC`).all();
+}
+
+function getPurchaseOrder(id) {
+  const po = db.prepare(`SELECT po.*, s.name AS supplier_name FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id=s.id WHERE po.id=?`).get(id);
+  if (!po) return null;
+  po.items = db.prepare(`SELECT * FROM purchase_order_items WHERE po_id=?`).all(id);
+  return po;
+}
+
+function savePurchaseOrder({ po, items }) {
+  const now = new Date().toISOString();
+  const id = uuidv4();
+  const poNumber = `PO-${Date.now()}`;
+  const subtotal = items.reduce((s, i) => s + (i.unit_cost * i.quantity_ordered), 0);
+  db.prepare(`INSERT INTO purchase_orders (id,po_number,supplier_id,status,subtotal,total,notes,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)`)
+    .run(id, poNumber, po.supplier_id||null, 'pending', subtotal, subtotal, po.notes||null, now, now);
+  for (const item of items) {
+    db.prepare(`INSERT INTO purchase_order_items (id,po_id,product_id,product_name,quantity_ordered,quantity_received,unit_cost,total_cost,created_at) VALUES (?,?,?,?,?,0,?,?,?)`)
+      .run(uuidv4(), id, item.product_id||null, item.product_name||'', item.quantity_ordered||0, item.unit_cost||0, (item.quantity_ordered||0)*(item.unit_cost||0), now);
+  }
+  return { id, po_number: poNumber };
+}
+
+function receivePurchaseOrder(id) {
+  const now = new Date().toISOString();
+  const receive = db.transaction(() => {
+    const items = db.prepare(`SELECT * FROM purchase_order_items WHERE po_id=?`).all(id);
+    for (const item of items) {
+      db.prepare(`UPDATE purchase_order_items SET quantity_received=quantity_ordered WHERE id=?`).run(item.id);
+      if (item.product_id) {
+        db.prepare(`UPDATE products SET stock=stock+?, updated_at=? WHERE id=?`).run(item.quantity_ordered, now, item.product_id);
+      }
+    }
+    db.prepare(`UPDATE purchase_orders SET status='received', updated_at=? WHERE id=?`).run(now, id);
+  });
+  receive();
+  return { success: true };
+}
+
+// ── Stock Adjustments ──────────────────────────────────────────────────────────
+function getStockAdjustments(filters = {}) {
+  let query = `SELECT sa.*, p.name AS product_name FROM stock_adjustments sa LEFT JOIN products p ON sa.product_id=p.id`;
+  const params = [];
+  if (filters.product_id) { query += ` WHERE sa.product_id=?`; params.push(filters.product_id); }
+  query += ` ORDER BY sa.created_at DESC`;
+  if (filters.limit) { query += ` LIMIT ?`; params.push(filters.limit); }
+  return db.prepare(query).all(...params);
+}
+
+function saveStockAdjustment(adj) {
+  const now = new Date().toISOString();
+  const id = uuidv4();
+  const adjust = db.transaction(() => {
+    db.prepare(`INSERT INTO stock_adjustments (id,product_id,quantity,reason,notes,created_at) VALUES (?,?,?,?,?,?)`)
+      .run(id, adj.product_id, adj.quantity, adj.reason, adj.notes||null, now);
+    db.prepare(`UPDATE products SET stock=MAX(0,stock+?), updated_at=? WHERE id=?`).run(adj.quantity, now, adj.product_id);
+  });
+  adjust();
+  return { id };
+}
+
+// ── Shifts ─────────────────────────────────────────────────────────────────────
+function getCurrentShift() {
+  return db.prepare(`SELECT * FROM shifts WHERE status='open' ORDER BY opened_at DESC LIMIT 1`).get() || null;
+}
+
+function getShifts() {
+  return db.prepare(`SELECT * FROM shifts ORDER BY created_at DESC`).all();
+}
+
+function openShift({ opening_cash, cashier_name }) {
+  const existing = getCurrentShift();
+  if (existing) return existing;
+  const now = new Date().toISOString();
+  const id = uuidv4();
+  db.prepare(`INSERT INTO shifts (id,cashier_name,opening_cash,status,opened_at,created_at,updated_at) VALUES (?,?,?,'open',?,?,?)`)
+    .run(id, cashier_name||'Cashier', opening_cash||0, now, now, now);
+  return { id };
+}
+
+function closeShift({ id, closing_cash, notes }) {
+  const now = new Date().toISOString();
+  const shift = db.prepare(`SELECT * FROM shifts WHERE id=?`).get(id);
+  if (!shift) throw new Error('Shift not found');
+  const shiftStart = shift.opened_at;
+  const cashSalesRow = db.prepare(`SELECT COALESCE(SUM(total),0) AS total, COUNT(*) as count FROM transactions WHERE payment_method='cash' AND status='completed' AND created_at>=? AND created_at<=?`).get(shiftStart, now);
+  const allSalesRow = db.prepare(`SELECT COALESCE(SUM(total),0) AS total, COUNT(*) as count FROM transactions WHERE status='completed' AND created_at>=? AND created_at<=?`).get(shiftStart, now);
+  const expectedCash = (shift.opening_cash || 0) + (cashSalesRow.total || 0);
+  const difference = (closing_cash || 0) - expectedCash;
+  db.prepare(`UPDATE shifts SET status='closed',closing_cash=?,expected_cash=?,cash_difference=?,total_sales=?,transaction_count=?,notes=?,closed_at=?,updated_at=? WHERE id=?`)
+    .run(closing_cash||0, expectedCash, difference, allSalesRow.total||0, allSalesRow.count||0, notes||null, now, now, id);
+  return { success: true };
+}
+
+// ── Laybys ─────────────────────────────────────────────────────────────────────
+function getLaybys(filters = {}) {
+  let query = `SELECT l.*, c.name AS customer_name_ref FROM laybys l LEFT JOIN customers c ON l.customer_id=c.id WHERE 1=1`;
+  const params = [];
+  if (filters.status) { query += ` AND l.status=?`; params.push(filters.status); }
+  query += ` ORDER BY l.created_at DESC`;
+  return db.prepare(query).all(...params);
+}
+
+function getLayby(id) {
+  const layby = db.prepare(`SELECT * FROM laybys WHERE id=?`).get(id);
+  if (!layby) return null;
+  layby.items = db.prepare(`SELECT * FROM layby_items WHERE layby_id=?`).all(id);
+  return layby;
+}
+
+function saveLayby({ layby, items }) {
+  const now = new Date().toISOString();
+  const id = layby.id || uuidv4();
+  const laybyNumber = layby.layby_number || `LB-${Date.now()}`;
+  const save = db.transaction(() => {
+    if (layby.id) {
+      db.prepare(`UPDATE laybys SET customer_id=?,customer_name=?,subtotal=?,tax=?,discount=?,total=?,deposit=?,balance_due=?,status=?,notes=?,updated_at=? WHERE id=?`)
+        .run(layby.customer_id||null, layby.customer_name||'Walk-in', layby.subtotal||0, layby.tax||0, layby.discount||0, layby.total||0, layby.deposit||0, layby.balance_due||0, layby.status||'active', layby.notes||null, now, layby.id);
+    } else {
+      db.prepare(`INSERT INTO laybys (id,layby_number,customer_id,customer_name,subtotal,tax,discount,total,deposit,balance_due,status,notes,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .run(id, laybyNumber, layby.customer_id||null, layby.customer_name||'Walk-in', layby.subtotal||0, layby.tax||0, layby.discount||0, layby.total||0, layby.deposit||0, layby.balance_due||0, layby.status||'active', layby.notes||null, now, now);
+      for (const item of (items||[])) {
+        db.prepare(`INSERT INTO layby_items (id,layby_id,product_id,product_name,sku,quantity,unit_price,discount,total,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+          .run(uuidv4(), id, item.product_id||null, item.product_name, item.sku||null, item.quantity||1, item.unit_price||0, item.discount||0, item.total||0, now);
+      }
+    }
+  });
+  save();
+  return { id, layby_number: laybyNumber };
+}
+
+function addLaybyDeposit({ id, amount, payment_method }) {
+  const now = new Date().toISOString();
+  const layby = db.prepare(`SELECT * FROM laybys WHERE id=?`).get(id);
+  if (!layby) throw new Error('Layby not found');
+  const newDeposit = (layby.deposit || 0) + (amount || 0);
+  const newBalance = Math.max(0, (layby.total || 0) - newDeposit);
+  db.prepare(`UPDATE laybys SET deposit=?,balance_due=?,updated_at=? WHERE id=?`).run(newDeposit, newBalance, now, id);
+  return { success: true };
+}
+
+function completeLayby({ id, payment_method }) {
+  const now = new Date().toISOString();
+  const layby = db.prepare(`SELECT * FROM laybys WHERE id=?`).get(id);
+  if (!layby) throw new Error('Layby not found');
+  const items = db.prepare(`SELECT * FROM layby_items WHERE layby_id=?`).all(id);
+  const complete = db.transaction(() => {
+    const receiptNumber = `R${Date.now()}`;
+    const txnId = uuidv4();
+    db.prepare(`INSERT INTO transactions (id,receipt_number,customer_id,subtotal,tax,discount,total,payment_method,amount_tendered,change_due,status,notes,synced,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,0,'completed',?,0,?,?)`)
+      .run(txnId, receiptNumber, layby.customer_id||null, layby.subtotal, layby.tax, layby.discount, layby.total, payment_method||'cash', layby.total, `Layby ${layby.layby_number}`, now, now);
+    for (const item of items) {
+      db.prepare(`INSERT INTO transaction_items (id,transaction_id,product_id,product_name,sku,quantity,unit_price,cost,discount,total,created_at) VALUES (?,?,?,?,?,?,?,0,?,?,?)`)
+        .run(uuidv4(), txnId, item.product_id||null, item.product_name, item.sku||null, item.quantity, item.unit_price, item.discount||0, item.total, now);
+      if (item.product_id) {
+        db.prepare(`UPDATE products SET stock=MAX(0,stock-?), updated_at=? WHERE id=?`).run(item.quantity, now, item.product_id);
+      }
+    }
+    db.prepare(`UPDATE laybys SET status='completed',balance_due=0,deposit=total,updated_at=? WHERE id=?`).run(now, id);
+  });
+  complete();
+  return { success: true };
+}
+
+function cancelLayby(id) {
+  db.prepare(`UPDATE laybys SET status='cancelled', updated_at=? WHERE id=?`).run(new Date().toISOString(), id);
+  return { success: true };
+}
+
 module.exports = {
   initialize,
   getProducts,
@@ -518,4 +835,23 @@ module.exports = {
   getSyncData,
   applySyncData,
   markSynced,
+  getSuppliers,
+  saveSupplier,
+  deleteSupplier,
+  getPurchaseOrders,
+  getPurchaseOrder,
+  savePurchaseOrder,
+  receivePurchaseOrder,
+  getStockAdjustments,
+  saveStockAdjustment,
+  getCurrentShift,
+  getShifts,
+  openShift,
+  closeShift,
+  getLaybys,
+  getLayby,
+  saveLayby,
+  addLaybyDeposit,
+  completeLayby,
+  cancelLayby,
 };

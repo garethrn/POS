@@ -148,5 +148,34 @@ ipcMain.handle('sync:full', async () => {
   return { success: true, syncedAt: now };
 });
 
+// ── Suppliers ─────────────────────────────────────────────────────────────────
+ipcMain.handle('db:getSuppliers', () => db.getSuppliers());
+ipcMain.handle('db:saveSupplier', (_e, s) => db.saveSupplier(s));
+ipcMain.handle('db:deleteSupplier', (_e, id) => db.deleteSupplier(id));
+
+// ── Purchase Orders ───────────────────────────────────────────────────────────
+ipcMain.handle('db:getPurchaseOrders', () => db.getPurchaseOrders());
+ipcMain.handle('db:getPurchaseOrder', (_e, id) => db.getPurchaseOrder(id));
+ipcMain.handle('db:savePurchaseOrder', (_e, data) => db.savePurchaseOrder(data));
+ipcMain.handle('db:receivePurchaseOrder', (_e, id) => db.receivePurchaseOrder(id));
+
+// ── Stock Adjustments ─────────────────────────────────────────────────────────
+ipcMain.handle('db:getStockAdjustments', (_e, f) => db.getStockAdjustments(f));
+ipcMain.handle('db:saveStockAdjustment', (_e, adj) => db.saveStockAdjustment(adj));
+
+// ── Shifts ────────────────────────────────────────────────────────────────────
+ipcMain.handle('db:getCurrentShift', () => db.getCurrentShift());
+ipcMain.handle('db:getShifts', () => db.getShifts());
+ipcMain.handle('db:openShift', (_e, data) => db.openShift(data));
+ipcMain.handle('db:closeShift', (_e, data) => db.closeShift(data));
+
+// ── Laybys ────────────────────────────────────────────────────────────────────
+ipcMain.handle('db:getLaybys', (_e, f) => db.getLaybys(f));
+ipcMain.handle('db:getLayby', (_e, id) => db.getLayby(id));
+ipcMain.handle('db:saveLayby', (_e, data) => db.saveLayby(data));
+ipcMain.handle('db:addLaybyDeposit', (_e, data) => db.addLaybyDeposit(data));
+ipcMain.handle('db:completeLayby', (_e, data) => db.completeLayby(data));
+ipcMain.handle('db:cancelLayby', (_e, id) => db.cancelLayby(id));
+
 // ── App info ─────────────────────────────────────────────────────────────────
 ipcMain.handle('app:getVersion', () => app.getVersion());

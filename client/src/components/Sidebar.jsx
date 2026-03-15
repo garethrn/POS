@@ -1,14 +1,34 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 
-const NAV_ITEMS = [
-  { to: '/', label: 'POS', icon: '🛒', end: true },
-  { to: '/products', label: 'Products', icon: '📦' },
-  { to: '/categories', label: 'Categories', icon: '🏷️' },
-  { to: '/customers', label: 'Customers', icon: '👥' },
-  { to: '/transactions', label: 'Transactions', icon: '🧾' },
-  { to: '/reports', label: 'Reports', icon: '📊' },
-  { to: '/settings', label: 'Settings', icon: '⚙️' },
+const NAV_SECTIONS = [
+  {
+    label: 'Sales',
+    items: [
+      { to: '/', label: 'POS', icon: '🛒', end: true },
+      { to: '/laybys', label: 'Laybys', icon: '⏸' },
+      { to: '/transactions', label: 'Transactions', icon: '🧾' },
+    ],
+  },
+  {
+    label: 'Inventory',
+    items: [
+      { to: '/products', label: 'Products', icon: '📦' },
+      { to: '/categories', label: 'Categories', icon: '��️' },
+      { to: '/suppliers', label: 'Suppliers', icon: '🚚' },
+      { to: '/purchase-orders', label: 'Purchase Orders', icon: '📋' },
+      { to: '/stock-adjustments', label: 'Stock Adjustments', icon: '🔧' },
+    ],
+  },
+  {
+    label: 'Management',
+    items: [
+      { to: '/cash-management', label: 'Cash Management', icon: '💰' },
+      { to: '/customers', label: 'Customers', icon: '👥' },
+      { to: '/reports', label: 'Reports', icon: '📊' },
+      { to: '/settings', label: 'Settings', icon: '⚙️' },
+    ],
+  },
 ];
 
 export default function Sidebar({ storeName, online }) {
@@ -20,16 +40,21 @@ export default function Sidebar({ storeName, online }) {
       </div>
 
       <nav className="sidebar-nav">
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-          >
-            <span className="nav-icon">{item.icon}</span>
-            {item.label}
-          </NavLink>
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.label}>
+            <div className="sidebar-section-label">{section.label}</div>
+            {section.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+              >
+                <span className="nav-icon">{item.icon}</span>
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 

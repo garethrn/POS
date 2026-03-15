@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-function ProductModal({ product, categories, onSave, onClose }) {
+function ProductModal({ product, categories, suppliers, onSave, onClose }) {
   const [form, setForm] = useState({
     name: '', sku: '', barcode: '', category_id: '',
     price: '', cost: '', stock: '', description: '', is_active: true,
+    supplier_id: '', min_stock: '', max_stock: '', reorder_point: '',
     ...product,
   });
   const [error, setError] = useState('');
@@ -21,6 +22,9 @@ function ProductModal({ product, categories, onSave, onClose }) {
         price: parseFloat(form.price) || 0,
         cost: parseFloat(form.cost) || 0,
         stock: parseInt(form.stock, 10) || 0,
+        min_stock: parseInt(form.min_stock, 10) || 0,
+        max_stock: parseInt(form.max_stock, 10) || 0,
+        reorder_point: parseInt(form.reorder_point, 10) || 5,
         is_active: form.is_active ? 1 : 0,
       });
       onSave();
@@ -63,6 +67,13 @@ function ProductModal({ product, categories, onSave, onClose }) {
               </select>
             </div>
           </div>
+          <div className="form-group">
+            <label>Supplier</label>
+            <select className="form-control" value={form.supplier_id || ''} onChange={(e) => set('supplier_id', e.target.value)}>
+              <option value="">— None —</option>
+              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
           <div className="form-row">
             <div className="form-group">
               <label>Price</label>
@@ -75,6 +86,20 @@ function ProductModal({ product, categories, onSave, onClose }) {
             <div className="form-group">
               <label>Stock</label>
               <input className="form-control" type="number" min={0} value={form.stock || ''} onChange={(e) => set('stock', e.target.value)} />
+            </div>
+          </div>
+          <div className="form-row-3">
+            <div className="form-group">
+              <label>Min Stock</label>
+              <input className="form-control" type="number" min={0} value={form.min_stock || ''} onChange={(e) => set('min_stock', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>Max Stock</label>
+              <input className="form-control" type="number" min={0} value={form.max_stock || ''} onChange={(e) => set('max_stock', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>Reorder Point</label>
+              <input className="form-control" type="number" min={0} value={form.reorder_point || ''} onChange={(e) => set('reorder_point', e.target.value)} />
             </div>
           </div>
           <div className="form-group">
@@ -100,6 +125,7 @@ function ProductModal({ product, categories, onSave, onClose }) {
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [search, setSearch] = useState('');
   const [editProduct, setEditProduct] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -109,12 +135,14 @@ export default function Products() {
   const load = useCallback(async () => {
     if (!window.posAPI) return;
     setLoading(true);
-    const [prods, cats] = await Promise.all([
+    const [prods, cats, supps] = await Promise.all([
       window.posAPI.products.getAll(),
       window.posAPI.categories.getAll(),
+      window.posAPI?.suppliers?.getAll?.() || Promise.resolve([]),
     ]);
     setProducts(prods || []);
     setCategories(cats || []);
+    setSuppliers(supps || []);
     setLoading(false);
   }, []);
 
@@ -191,6 +219,12 @@ export default function Products() {
                       <span style={{ color: p.stock <= 0 ? 'var(--danger)' : 'inherit' }}>
                         {p.stock}
                       </span>
+                      {p.stock > 0 && p.stock <= (p.reorder_point || 5) && (
+                        <span className="badge badge-warning" style={{ marginLeft: 6 }}>⚠️ Low</span>
+                      )}
+                      {p.stock <= 0 && (
+                        <span className="badge badge-danger" style={{ marginLeft: 6 }}>Out</span>
+                      )}
                     </td>
                     <td>
                       <span className={`badge ${p.is_active ? 'badge-success' : 'badge-secondary'}`}>
@@ -213,6 +247,7 @@ export default function Products() {
         <ProductModal
           product={editProduct}
           categories={categories}
+          suppliers={suppliers}
           onSave={() => { setShowModal(false); load(); }}
           onClose={() => setShowModal(false)}
         />
