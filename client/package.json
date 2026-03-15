@@ -5,7 +5,10 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently -k \"vite --port 5173\" \"wait-on http://localhost:5173 && ELECTRON_DEV=true electron .\"",
+    "dev:web": "vite --config vite.web.config.js",
     "build": "vite build",
+    "build:web": "vite build --config vite.web.config.js",
+    "preview:web": "vite preview --config vite.web.config.js",
     "dist": "vite build && electron-builder",
     "preview": "vite preview"
   },

@@ -39,7 +39,16 @@ const apiLimiter = rateLimit({
 
 // ── Middleware ───────────────────────────────────────────────────────────────
 
-app.use(cors());
+// CORS: allow specific origins when CORS_ORIGINS env var is set,
+// otherwise allow all origins (needed for the Electron desktop client).
+const corsOptions = process.env.CORS_ORIGINS
+  ? {
+      origin: process.env.CORS_ORIGINS.split(',').map((o) => o.trim()),
+      credentials: true,
+    }
+  : {};  // default: allow all origins
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 

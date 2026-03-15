@@ -115,33 +115,37 @@ The server is a standard Node.js/Express app. Deploy it to any platform that sup
 
 | Platform | Notes |
 |----------|-------|
+| **cPanel** | See full guide → **[CPANEL_DEPLOYMENT.md](CPANEL_DEPLOYMENT.md)** |
 | [Railway](https://railway.app/) | Free tier available, auto-detects Node.js |
 | [Render](https://render.com/) | Free tier available |
 | [Heroku](https://heroku.com/) | Set `JWT_SECRET` as a config var |
 | [Fly.io](https://fly.io/) | Good for persistent SQLite |
 | VPS (Ubuntu) | Run with `pm2 start src/app.js` |
 
-Set the environment variable `JWT_SECRET` to a long random string on your hosting platform.
+Required environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `JWT_SECRET` | Long random secret (32+ chars). Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `NODE_ENV` | Set to `production` on live servers |
+| `ADMIN_PASSWORD` | Initial admin password (auto-generated and logged if not set) |
+| `DB_PATH` | Path to SQLite database file (default: `server/pos.db`) |
+| `CORS_ORIGINS` | Comma-separated allowed origins (optional; allow-all if not set) |
 
 ---
 
 ### Client Setup
 
-#### Development
+#### Option A — Electron Desktop App (Windows / macOS)
 
 ```bash
 cd client
 npm install
 
-# Start in development mode (opens Electron + Vite dev server)
+# Development (opens Electron window with live-reload)
 npm run dev
-```
 
-#### Build for Distribution
-
-```bash
-cd client
-npm install
+# Build installer for distribution
 npm run dist
 ```
 
@@ -149,7 +153,31 @@ Built installers will be in `client/dist-electron/`:
 - **Windows**: `.exe` NSIS installer
 - **macOS**: `.dmg` disk image
 
-#### Configuring the Server URL
+After installing, open the app, go to **Settings → Server Sync**, enter your server URL and API token, and click **Sync Now**.
+
+#### Option B — Web App (browser, any device)
+
+The React UI can be built as a standalone web app that runs in any browser — ideal for tablets, PCs, and phones without installing Electron.
+
+```bash
+cd client
+npm install
+
+# Build for web (replace with your API server URL)
+VITE_API_URL=https://api.yourstore.com npm run build:web
+```
+
+The built files will be in `client/dist-web/`. Upload these to your web host's public directory.
+
+**Development mode** (requires the server running on localhost:3001):
+```bash
+cd client
+npm run dev:web   # Opens browser at http://localhost:5174
+```
+
+For detailed cPanel deployment instructions, see **[CPANEL_DEPLOYMENT.md](CPANEL_DEPLOYMENT.md)**.
+
+#### Configuring the Server URL (Electron app)
 
 1. Open the client app
 2. Go to **Settings**
@@ -238,10 +266,11 @@ All other endpoints require `Authorization: Bearer <token>` header.
 
 ```
 POS/
+├── CPANEL_DEPLOYMENT.md     # ← cPanel hosting guide
 ├── server/                  # Express REST API
 │   ├── src/
 │   │   ├── app.js           # Express app entry point
-│   │   ├── db.js            # SQLite setup and schema
+│   │   ├── db.js            # SQLite setup, schema, and migrations
 │   │   ├── middleware/
 │   │   │   └── auth.js      # JWT authentication middleware
 │   │   └── routes/
@@ -251,31 +280,45 @@ POS/
 │   │       ├── customers.js
 │   │       ├── transactions.js
 │   │       ├── settings.js
+│   │       ├── suppliers.js
+│   │       ├── purchase_orders.js
+│   │       ├── stock_adjustments.js
+│   │       ├── shifts.js
+│   │       ├── laybys.js
+│   │       ├── reports.js
 │   │       └── sync.js
 │   ├── package.json
 │   └── .env.example
 │
-└── client/                  # Electron desktop app
+└── client/                  # Electron desktop app + web app
     ├── electron/
     │   ├── main.js          # Electron main process + IPC handlers
     │   ├── preload.js       # Context bridge (window.posAPI)
     │   └── db.js            # Local SQLite database
     ├── src/
-    │   ├── index.jsx        # React entry point
-    │   ├── App.jsx          # Router and routes
-    │   ├── App.css          # Global styles (dark theme)
+    │   ├── index.jsx        # React entry point (injects web-api in browser mode)
+    │   ├── App.jsx          # Router, routes, login guard
+    │   ├── App.css          # Global styles
+    │   ├── web-api.js       # ← HTTP posAPI for browser/cPanel deployment
     │   └── components/
     │       ├── Layout.jsx
     │       ├── Sidebar.jsx
+    │       ├── Login/Login.jsx       # ← Web login screen
     │       ├── POS/POSScreen.jsx
     │       ├── Products/Products.jsx
     │       ├── Categories/Categories.jsx
     │       ├── Customers/Customers.jsx
+    │       ├── Suppliers/Suppliers.jsx
+    │       ├── PurchaseOrders/PurchaseOrders.jsx
+    │       ├── StockAdjustments/StockAdjustments.jsx
+    │       ├── Laybys/Laybys.jsx
+    │       ├── CashManagement/CashManagement.jsx
     │       ├── Transactions/Transactions.jsx
     │       ├── Reports/Reports.jsx
     │       └── Settings/Settings.jsx
     ├── index.html
-    ├── vite.config.js
+    ├── vite.config.js       # Electron build config
+    ├── vite.web.config.js   # ← Web / cPanel build config
     └── package.json
 ```
 

@@ -770,3 +770,54 @@ select.form-control { cursor: pointer; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cfd8dc; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #b0bec5; }
+
+/* ── Login page (web / cPanel deployment) ────────────────────────────────────── */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f1729 0%, #1a2744 100%);
+  padding: 24px;
+}
+
+.login-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+
+.login-logo {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--primary);
+  text-align: center;
+  letter-spacing: -1px;
+  margin-bottom: 4px;
+}
+
+.login-subtitle {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 28px;
+}
+
+.login-card .form-group { margin-bottom: 16px; }
+.login-card .btn-lg { margin-top: 4px; }
+
+/* ── Web-mode logout button in sidebar footer ─────────────────────────────────── */
+.sidebar-logout-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--sidebar-text);
+  border-radius: var(--radius);
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+.sidebar-logout-btn:hover { background: rgba(220,38,38,0.25); color: #fca5a5; border-color: rgba(220,38,38,0.4); }
