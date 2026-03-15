@@ -45,17 +45,19 @@ router.post('/', (req, res) => {
     const id  = uuidv4();
 
     const adjust = db.transaction(() => {
-      // Re-read stock inside the transaction to avoid TOCTOU race
-      const current = db.prepare('SELECT stock FROM products WHERE id = ?').get(product_id);
-      const newStock = current.stock + quantity;
-      if (newStock < 0) throw Object.assign(new Error('Adjustment would result in negative stock'), { statusCode: 400 });
+      // Atomic: update stock only if result >= 0, then check affected rows
+      const updated = db.prepare(
+        'UPDATE products SET stock = stock + ?, updated_at = ? WHERE id = ? AND stock + ? >= 0'
+      ).run(quantity, now, product_id, quantity);
+
+      if (updated.changes === 0) {
+        throw Object.assign(new Error('Adjustment would result in negative stock'), { statusCode: 400 });
+      }
 
       db.prepare(`
         INSERT INTO stock_adjustments (id, product_id, quantity, reason, notes, user_id, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(id, product_id, quantity, reason, notes || null, req.user.id, now);
-      db.prepare('UPDATE products SET stock = ?, updated_at = ? WHERE id = ?')
-        .run(newStock, now, product_id);
     });
     try {
       adjust();

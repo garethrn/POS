@@ -84,7 +84,7 @@ router.post('/:id/close', (req, res) => {
 
     const { closing_cash = 0, notes } = req.body;
 
-    // Calculate total sales during this shift
+    // Calculate total sales and cash-only sales during this shift
     const salesRow = db.prepare(`
       SELECT COALESCE(SUM(total), 0) AS total_sales,
              COUNT(*) AS transaction_count
@@ -92,9 +92,17 @@ router.post('/:id/close', (req, res) => {
        WHERE cashier_id = ? AND created_at >= ? AND status = 'completed'
     `).get(shift.cashier_id, shift.opened_at);
 
+    const cashSalesRow = db.prepare(`
+      SELECT COALESCE(SUM(total), 0) AS cash_sales
+        FROM transactions
+       WHERE cashier_id = ? AND created_at >= ? AND status = 'completed'
+         AND payment_method = 'cash'
+    `).get(shift.cashier_id, shift.opened_at);
+
     const total_sales       = salesRow.total_sales;
     const transaction_count = salesRow.transaction_count;
-    const expected_cash     = shift.opening_cash + total_sales;
+    // Expected cash = opening float + cash sales only (card/EFT don't affect the cash drawer)
+    const expected_cash     = shift.opening_cash + cashSalesRow.cash_sales;
     const cash_difference   = closing_cash - expected_cash;
     const now               = new Date().toISOString();
 

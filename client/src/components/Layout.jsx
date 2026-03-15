@@ -26,7 +26,7 @@ export default function Layout({ children }) {
   return (
     <div className="app-shell">
       <Sidebar storeName={storeName} online={online} />
-      <div className="content-area">{children}</div>
+      <div className="content">{children}</div>
     </div>
   );
 }

@@ -606,7 +606,7 @@ const migrations = [
   'ALTER TABLE products ADD COLUMN max_stock INTEGER DEFAULT 0',
   'ALTER TABLE products ADD COLUMN reorder_point INTEGER DEFAULT 5',
   'ALTER TABLE customers ADD COLUMN credit_limit REAL DEFAULT 0',
-  'ALTER TABLE customers ADD COLUMN account_type TEXT DEFAULT "cash"',
+  "ALTER TABLE customers ADD COLUMN account_type TEXT DEFAULT 'cash'",
   'ALTER TABLE customers ADD COLUMN balance REAL DEFAULT 0',
   'ALTER TABLE transaction_items ADD COLUMN product_sku TEXT',
 ];

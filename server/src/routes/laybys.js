@@ -116,7 +116,7 @@ router.post('/:id/complete', (req, res) => {
     const items     = db.prepare('SELECT * FROM layby_items WHERE layby_id = ?').all(layby.id);
     const now       = new Date().toISOString();
     const txId      = uuidv4();
-    const receiptNo = 'REC-LB-' + Date.now();
+    const receiptNo = 'LB-' + uuidv4().slice(0, 8).toUpperCase();
     const paid      = amount_paid ?? layby.total;
     const change    = Math.max(0, paid - layby.balance_due);
 

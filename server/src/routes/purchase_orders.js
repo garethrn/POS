@@ -101,12 +101,17 @@ router.put('/:id/receive', (req, res) => {
     }
 
     const now = new Date().toISOString();
+    const warnings = [];
     const receive = db.transaction(() => {
       for (const it of items) {
         const poItem = db.prepare('SELECT * FROM purchase_order_items WHERE id = ? AND po_id = ?')
                          .get(it.id, req.params.id);
         if (!poItem) continue;
-        const received = Math.min(it.quantity_received || 0, poItem.quantity_ordered);
+        const requested = it.quantity_received || 0;
+        if (requested > poItem.quantity_ordered) {
+          warnings.push(`Item "${poItem.product_name}": requested ${requested} but only ${poItem.quantity_ordered} were ordered. Capping at ordered quantity.`);
+        }
+        const received = Math.min(requested, poItem.quantity_ordered);
         db.prepare('UPDATE purchase_order_items SET quantity_received = ? WHERE id = ?')
           .run(received, it.id);
         if (poItem.product_id && received > 0) {
@@ -121,6 +126,7 @@ router.put('/:id/receive', (req, res) => {
 
     const updated  = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
     updated.items  = db.prepare('SELECT * FROM purchase_order_items WHERE po_id = ?').all(req.params.id);
+    if (warnings.length > 0) updated.warnings = warnings;
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
