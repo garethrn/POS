@@ -1,6 +1,16 @@
 'use strict';
 
 require('dotenv').config();
+
+// Fail fast if critical environment variables are not set in production
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable must be set in production.');
+  process.exit(1);
+}
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET is not set. Set it before deploying to production.');
+}
+
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');

@@ -11,7 +11,9 @@ function auth(req, res, next) {
     }
 
     const token = authHeader.slice(7);
-    const payload = jwt.verify(token, process.env.JWT_SECRET || 'changeme');
+    const secret = process.env.JWT_SECRET;
+    if (!secret) throw new Error('JWT_SECRET not configured');
+    const payload = jwt.verify(token, secret);
 
     const user = db.prepare('SELECT id, username, role FROM users WHERE id = ?').get(payload.id);
     if (!user) {

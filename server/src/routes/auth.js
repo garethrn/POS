@@ -27,9 +27,13 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return res.status(500).json({ error: 'Server misconfiguration: JWT_SECRET not set' });
+    }
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
-      process.env.JWT_SECRET || 'changeme',
+      secret,
       { expiresIn: '24h' }
     );
 

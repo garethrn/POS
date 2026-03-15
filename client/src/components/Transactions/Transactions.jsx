@@ -65,7 +65,7 @@ function TransactionDetailModal({ id, onClose }) {
                 {(txn.items || []).map((item) => (
                   <tr key={item.id}>
                     <td>{item.product_name}</td>
-                    <td>{item.sku || '—'}</td>
+                    <td>{item.product_sku || '—'}</td>
                     <td>{item.quantity}</td>
                     <td>${Number(item.unit_price).toFixed(2)}</td>
                     <td>${Number(item.total).toFixed(2)}</td>

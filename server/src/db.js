@@ -102,11 +102,23 @@ db.exec(`
   );
 `);
 
+const crypto = require('crypto');
+
 // ── Seed default admin user ──────────────────────────────────────────────────
 
 const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
 if (!adminExists) {
-  const hashedPassword = bcrypt.hashSync('admin123', 10);
+  // Use ADMIN_PASSWORD env var if set; otherwise generate a random password and log it.
+  const adminPassword = process.env.ADMIN_PASSWORD || crypto.randomBytes(10).toString('hex');
+  if (!process.env.ADMIN_PASSWORD) {
+    console.log('='.repeat(60));
+    console.log('FIRST RUN: Default admin credentials created:');
+    console.log('  Username: admin');
+    console.log(`  Password: ${adminPassword}`);
+    console.log('Change this password immediately after first login.');
+    console.log('='.repeat(60));
+  }
+  const hashedPassword = bcrypt.hashSync(adminPassword, 10);
   const now = new Date().toISOString();
   db.prepare(`
     INSERT INTO users (id, username, password, role, created_at, updated_at)
