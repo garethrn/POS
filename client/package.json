@@ -1,0 +1,36 @@
+{
+  "name": "pos-client",
+  "version": "1.0.0",
+  "description": "POS Client - Offline desktop app for Windows and Mac",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite --port 5173\" \"wait-on http://localhost:5173 && ELECTRON_DEV=true electron .\"",
+    "build": "vite build",
+    "dist": "vite build && electron-builder",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.1",
+    "better-sqlite3": "^12.8.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "electron": "^29.1.1",
+    "electron-builder": "^24.9.1",
+    "vite": "^5.1.4",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.pos.client",
+    "productName": "POS",
+    "directories": { "output": "dist-electron" },
+    "files": ["electron/**/*", "dist/**/*"],
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" }
+  }
+}
