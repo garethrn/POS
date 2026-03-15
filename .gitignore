@@ -1,1 +1,26 @@
 POS
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+client/dist/
+client/dist-electron/
+
+# Environment files
+.env
+**/.env
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
